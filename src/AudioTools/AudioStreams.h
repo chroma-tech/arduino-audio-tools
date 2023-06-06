@@ -983,7 +983,7 @@ class ConverterStream : public AudioStream {
         }
 
         size_t readBytes(uint8_t *data, size_t length) override {
-           size_t result; p_stream->readBytes(data, length);
+           size_t result = p_stream->readBytes(data, length);
            return p_converter->convert(data, result); 
         }
 
@@ -1342,6 +1342,14 @@ class InputMixer : public AudioStream {
       return result_len;
     }
 
+    void setIgnoreWeights(bool value){
+      ignore_weights = value;
+    }
+
+    void setBlocking(bool value){
+      blocking = value;
+    }
+
     // Commented out because URLStream returns 0 or 1 most of the time
     // /// Provides the available bytes from the first stream with data
     // int available()  override {
@@ -1359,6 +1367,8 @@ class InputMixer : public AudioStream {
     Vector<int> weights{10}; 
     int total_weights = 0;
     int frame_size = 4;
+    bool ignore_weights = false;
+    bool blocking = false;
 
     Vector<int> result_vect;
     Vector<T> current_vect;
@@ -1372,8 +1382,15 @@ class InputMixer : public AudioStream {
       resultClear();
       for (int j=0;j<stream_count;j++){
         if (weights[j]>0){
-          readSamples(streams[j],current_vect.data(), samples);
-          float fact = static_cast<float>(weights[j]) / total_weights;
+          if (blocking) {
+            readSamples(streams[j],current_vect.data(), samples);
+          } else {
+            readSamplesNoBlocking(streams[j],current_vect.data(), samples);
+          }
+          float fact = 1.0;
+          if (!ignore_weights) {
+            fact = static_cast<float>(weights[j]) / total_weights;
+          }
           resultAdd(fact);
         }
       }
