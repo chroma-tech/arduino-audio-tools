@@ -66,19 +66,26 @@ public:
   virtual Stream *selectStream(int index) override {
     LOGI("selectStream: %d", index);
     idx_pos = index;
+    file_size = 0;
     file_name = idx[index];
     if (file_name==nullptr) return nullptr;
     LOGI("Using file %s", file_name);
     file = SD_MMC.open(file_name);
+    if (file) file_size = file.size();
     return file ? &file : nullptr;
   }
 
   virtual Stream *selectStream(const char *path) override {
-    file.close();
-    file = SD_MMC.open(path);
-    file_name = file.name();
     LOGI("-> selectStream: %s", path);
-    return file ? &file : nullptr;
+    file.close();
+    file_size = 0;
+    file = SD_MMC.open(path);
+    if (file) {
+      file_size = file.size();
+      file_name = path;
+      return &file;
+    }
+    return nullptr;
   }
 
   /// Defines the regex filter criteria for selecting files. E.g. ".*Bob
@@ -100,6 +107,8 @@ public:
   /// Provides the number of files (The max index is size()-1): WARNING this is very slow if you have a lot of files in many subdirectories
   long size() { return idx.size();}
 
+  size_t streamSize() override { return file_size; }
+
 protected:
   SDDirect<fs::SDMMCFS,fs::File> idx{SD_MMC};
   File file;
@@ -108,6 +117,7 @@ protected:
   const char *exension = nullptr;
   const char *start_path = nullptr;
   const char *file_name_pattern = "*";
+  size_t file_size = 0;
   bool setup_index = true;
   bool is_sd_setup = false;
 };

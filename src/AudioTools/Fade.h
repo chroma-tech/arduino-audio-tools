@@ -29,7 +29,7 @@ public:
   void setFadeOutActive(bool flag) {
     is_fade_out = flag;
     if (is_fade_out) {
-      volume = 1.0;
+      // volume = 1.0;
       is_fade_in = false;
       is_done = false;
     }

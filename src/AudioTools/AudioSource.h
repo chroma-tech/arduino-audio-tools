@@ -57,6 +57,8 @@ public:
     /// Returns default setting go to the next
     virtual bool isAutoNext() {return true; }
 
+    virtual size_t streamSize() { return 0; }
+
 
 protected:
     int timeout_auto_next_value = 500;

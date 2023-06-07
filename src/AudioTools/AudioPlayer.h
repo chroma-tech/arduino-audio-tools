@@ -202,7 +202,7 @@ namespace audio_tools {
                 p_decoder->end();
                 p_decoder->begin();
             }
-
+            fade_out_done = false;
         }
 
         /// (Re)defines the audio source
@@ -308,6 +308,9 @@ namespace audio_tools {
             p_input_stream = input;
             if (p_input_stream != nullptr) {
                 LOGD("open selected stream");
+                stream_size = p_source->streamSize();
+                LOGI("stream size: %d", stream_size);
+                current_position = 0;
                 meta_out.begin();
                 copier.begin(*p_out_decoding, *p_input_stream);
             }
@@ -374,6 +377,13 @@ namespace audio_tools {
             size_t result = 0;
             if (active) {
                 TRACED();
+                if ((stream_size > 0) && (current_position >= (stream_size - 2048))) {
+                    if (!fade_out_done) {
+                        LOGI("end of stream fading out");
+                        fade_out_done = true;
+                        fade.setFadeOutActive(true);
+                    }
+                }
                 if (delay_if_full!=0 && p_final_print!=nullptr && p_final_print->availableForWrite()==0){
                     // not ready to do anything - so we wait a bit
                     delay(delay_if_full);
@@ -381,6 +391,8 @@ namespace audio_tools {
                 }
                 // handle sound
                 result = copier.copy();
+                current_position += result;
+
                 if (result>0 || timeout == 0) {
                     // reset timeout if we had any data
                     timeout = millis() + p_source->timeoutAutoNext();
@@ -454,6 +466,9 @@ namespace audio_tools {
         bool active = false;
         bool autonext = true;
         bool silence_on_inactive = false;
+        size_t stream_size = 0;
+        size_t current_position = 0;
+        bool fade_out_done = false;
         AudioSource* p_source = nullptr;
         VolumeStream volume_out; // Volume control
         FadeStream fade; // Phase in / Phase Out to avoid popping noise
@@ -486,8 +501,7 @@ namespace audio_tools {
             if (!autonext) return;
             if (p_final_stream==nullptr) return;
             if (p_final_stream->availableForWrite()==0) return;
-            if (p_input_stream == nullptr || millis() > timeout) {
-                fade.setFadeInActive(true);
+            if (p_input_stream == nullptr || millis() >= timeout) {                
                 if (autonext) {
                     LOGI("-> timeout - moving by %d", stream_increment);
                     // open next stream
@@ -495,6 +509,8 @@ namespace audio_tools {
                         LOGD("stream is null");
                     }
                 } else {
+                    fade.setFadeOutActive(true);
+                    copier.copy();
                     active = false;
                 }
                 timeout = millis() + p_source->timeoutAutoNext();
