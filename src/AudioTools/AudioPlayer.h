@@ -393,6 +393,13 @@ namespace audio_tools {
                 result = copier.copy();
                 current_position += result;
 
+                // end of stream
+                if (result == 0 || current_position >= stream_size) {
+                    if (!autonext) {
+                        active = false;
+                    }
+                }
+
                 if (result>0 || timeout == 0) {
                     // reset timeout if we had any data
                     timeout = millis() + p_source->timeoutAutoNext();
